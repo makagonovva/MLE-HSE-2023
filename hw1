@@ -1,0 +1,163 @@
+function hw1_mle()
+    nCities = 100;
+    initialTemperature = 100;
+    endTemperature = 0;
+    
+    cities = rand(nCities, 2)*10; 
+
+    figure 
+    plot(cities(:,1),cities(:,2),"b--o" ); 
+    title('Initial route')
+    
+    state = OptimiseRoute(cities, initialTemperature, endTemperature); 
+    
+    figure
+    plot(cities(state,1),cities(state,2),"r--o");
+    title('Optimized route')
+
+    state2opt = OptimiseRoute_2opt(cities, initialTemperature, endTemperature); 
+
+    figure
+    plot(cities(state2opt,1),cities(state2opt,2),"m--o"); 
+    title('2opt swap route')
+end
+
+function [ state ] = OptimiseRoute(cities, initialTemperature, endTemperature)
+    nCities = size(cities,1);
+    state = [1:nCities]'; % настройка первоночального порядка
+
+    currentEnergy = CalculateEnergy(state, cities); % длина пути
+    disp('Initial route length: ');
+    disp(currentEnergy);
+    T = initialTemperature;
+    
+    for k = 1:100000 % максимум количество операций 100000
+        stateCandidate = GenerateStateCandidate(state); % функция создания нового пути(неоднозначно, что он будет принят, как базовый)
+        candidateEnergy = CalculateEnergy(stateCandidate, cities); % перестановка 2х городов случайных
+        
+        if(candidateEnergy < currentEnergy) % проверяем, уменьшилась ли энергия(длина пути)
+            state = stateCandidate; % принимаем новый маршрут
+            currentEnergy = candidateEnergy;
+        else
+            p = GetTransitionProbability(candidateEnergy-currentEnergy, T); % рассчитываем вероятность, что он будет принят(чем больше разница длины, тем меньше вероятность, чем больше Т, тем больше вероятность)
+            if (IsTransition(p)) % генерация с.ч. для проверка вероятности
+                state = stateCandidate; % принятие маршрута
+                currentEnergy = candidateEnergy;
+            end
+        end
+
+        T = DecreaseTemperature(initialTemperature, k); % уменьшаем температуру в каждой итерации цикла
+        
+        if(T <= endTemperature) % условие выхода из цикла
+            break;
+        end
+    end    
+    disp('Final route length (swap): ');
+    disp(currentEnergy);
+end
+
+function [ E ] = CalculateEnergy(sequence, cities) 
+    n = size(sequence,1); 
+    E = 0;
+    for i = 1:n-1
+        E = E + Metric(cities(sequence(i),:), cities(sequence(i+1),:));
+    end
+    
+    E = E + Metric(cities(sequence(end),:), cities(sequence(1),:));
+end
+
+function [ distance ] = Metric( A, B ) 
+    distance = (A - B).^2;
+    distance = sqrt(distance);
+    distance = sum(distance);
+end
+
+function [ T ] = DecreaseTemperature( initialTemperature, k)
+    T = initialTemperature * 0.1 / k; 
+end
+
+function [ P ] = GetTransitionProbability( dE, T )
+    P = exp(-dE/T);
+end
+
+function [ a ] = IsTransition( probability )
+    if(rand(1) <= probability)
+        a = 1;
+    else
+        a = 0; 
+    end
+end
+
+function [ seq ] = GenerateStateCandidate(seq)
+    n = size(seq, 1); 
+    i = randi(n); 
+    j = randi(n);
+
+    
+    t = seq(i);
+    seq(i) = seq(j);
+    seq(j) = t;
+end
+
+% 2opt swap
+function [ state ] = OptimiseRoute_2opt(cities, initialTemperature, endTemperature)
+    nCities = size(cities,1);
+    state = [1:nCities]'; 
+    currentEnergy = CalculateEnergy_2opt(state, cities);
+    T = initialTemperature;
+    
+    for k = 1:100000 % максимум количество операций 100000
+        stateCandidate = GenerateStateCandidate_2opt(state); % функция создания нового пути(неоднозначно, что он будет принят, как базовый)
+        candidateEnergy = CalculateEnergy_2opt(stateCandidate, cities); % перестановка 2х городов случайных
+        
+        if(candidateEnergy < currentEnergy) % проверяем, уменьшилась ли энергия(длина пути)
+            state = stateCandidate; % принимаем новый маршрут
+            currentEnergy = candidateEnergy;
+        else
+            p = GetTransitionProbability(candidateEnergy-currentEnergy, T); % рассчитываем вероятность, что он будет принят(чем больше разница длины, тем меньше вероятность, чем больше Т, тем больше вероятность)
+            if (IsTransition(p)) % генерация с.ч. для проверка вероятности
+                state = stateCandidate; % принятие маршрута
+                currentEnergy = candidateEnergy;
+            end
+        end
+
+        T = DecreaseTemperature(initialTemperature, k); % уменьшаем температуру в каждой итерации цикла
+        
+        if(T <= endTemperature) % условие выхода из цикла
+            break;
+        end
+    end  
+    disp(['Final route length (2opt swap): ']);
+    disp(currentEnergy);
+end
+
+function [ seq ] = GenerateStateCandidate_2opt(seq)
+    n = size(seq, 1);
+    %disp('n: ');
+    %disp(n);
+    i = randi(n);
+    j = randi(n);
+
+    if(i > j)
+        t = j;
+        j = i;
+        i = t;
+    end
+
+    for k = 0:((j - i) / 2)
+        t = seq(j - k);
+        seq(j - k) = seq(i + k);
+        seq(i + k) = t;
+    end
+end
+
+
+function [ E ] = CalculateEnergy_2opt(sequence, cities) 
+   n = size(sequence,1); 
+    E = 0;
+    for i = 1:n-1
+        E = E + Metric(cities(sequence(i),:), cities(sequence(i+1),:));
+    end
+  
+    E = E + Metric(cities(sequence(end),:), cities(sequence(1),:));
+end
